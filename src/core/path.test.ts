@@ -19,8 +19,9 @@ describe('Path Normalization and Extension Utilities', () => {
     expect(normalizeRelativePath('/Supplier//Shoes///ABC-1.png/')).toBe('Supplier/Shoes/ABC-1.png')
   })
 
-  it('removes leading ./ from paths', () => {
-    expect(normalizeRelativePath('./catalog/images/photo.webp')).toBe('catalog/images/photo.webp')
+  it('removes dot segments and prevents relative traversal above the inventory root', () => {
+    expect(normalizeRelativePath('./catalog/./images/../ABC-1.JPG')).toBe('catalog/ABC-1.JPG')
+    expect(normalizeRelativePath('../../Supplier/../ABC-2.png')).toBe('ABC-2.png')
   })
 
   it('extracts basename preserving original casing and characters', () => {
