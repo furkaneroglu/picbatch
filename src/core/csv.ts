@@ -157,6 +157,10 @@ export function parseCsv(rawText: string, delimiter?: CsvDelimiter): string[][] 
     }
   }
 
+  if (inQuotes) {
+    throw new Error('Malformed CSV: unterminated quoted field.')
+  }
+
   // Push remaining field / row
   if (currentField.length > 0 || currentRow.length > 0) {
     currentRow.push(currentField)
