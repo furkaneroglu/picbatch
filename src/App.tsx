@@ -1,26 +1,50 @@
 import { useState } from 'react'
 import { WORKFLOW_STEPS, getTotalStepCount } from './steps'
+import type { ColumnMapping, ParsedSpreadsheet } from './types/spreadsheet'
+import { suggestColumnMapping, validatePrimaryIdentifierColumn } from './core/table'
+import { ProductFileStep } from './components/ProductFileStep'
+import { ColumnMappingStep } from './components/ColumnMappingStep'
+import { PlaceholderStep } from './components/PlaceholderStep'
 import './App.css'
 
 export function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [spreadsheet, setSpreadsheet] = useState<ParsedSpreadsheet | null>(null)
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
+    primaryKeyColumn: '',
+    skuColumn: null,
+    barcodeColumn: null,
+    currentFilenameColumn: null,
+  })
+
   const totalSteps = getTotalStepCount()
   const activeStep = WORKFLOW_STEPS[currentStepIndex]
 
-  const handleNext = () => {
-    if (currentStepIndex < totalSteps - 1) {
-      setCurrentStepIndex((prev) => prev + 1)
-    }
+  const handleSpreadsheetLoaded = (data: ParsedSpreadsheet) => {
+    setSpreadsheet(data)
+    const suggested = suggestColumnMapping(data.currentSheet.headers)
+    setColumnMapping(suggested)
   }
 
-  const handlePrevious = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1)
-    }
+  // Check if user is allowed to navigate to a specific step
+  const canAccessStep = (stepIndex: number): boolean => {
+    if (stepIndex === 0) return true
+    if (!spreadsheet) return false
+    if (stepIndex === 1) return true
+
+    // For step 2 onwards, primary identifier must be valid
+    const validation = validatePrimaryIdentifierColumn(
+      columnMapping.primaryKeyColumn,
+      spreadsheet.currentSheet.headers,
+      spreadsheet.currentSheet.rows,
+    )
+    return validation.isValid
   }
 
   const handleStepClick = (index: number) => {
-    setCurrentStepIndex(index)
+    if (canAccessStep(index)) {
+      setCurrentStepIndex(index)
+    }
   }
 
   return (
@@ -44,15 +68,18 @@ export function App() {
             {WORKFLOW_STEPS.map((step, index) => {
               const isActive = index === currentStepIndex
               const isPast = index < currentStepIndex
+              const isAccessible = canAccessStep(index)
+
               return (
                 <li
                   key={step.id}
-                  className={`step-item ${isActive ? 'active' : ''} ${isPast ? 'completed' : ''}`}
+                  className={`step-item ${isActive ? 'active' : ''} ${isPast ? 'completed' : ''} ${!isAccessible ? 'disabled' : ''}`}
                 >
                   <button
                     type="button"
                     className="step-button"
                     onClick={() => handleStepClick(index)}
+                    disabled={!isAccessible}
                     aria-current={isActive ? 'step' : undefined}
                   >
                     <span className="step-number">{index + 1}</span>
@@ -64,7 +91,7 @@ export function App() {
           </ol>
         </nav>
 
-        {/* Step Placeholder Content */}
+        {/* Active Step Container */}
         {activeStep && (
           <section className="step-card" aria-labelledby={`step-title-${activeStep.id}`}>
             <div className="step-card-header">
@@ -77,41 +104,51 @@ export function App() {
               <p className="step-description">{activeStep.shortDescription}</p>
             </div>
 
-            <div className="placeholder-box" role="status">
-              <div className="placeholder-badge">Placeholder (MVP-01)</div>
-              <p className="placeholder-message">{activeStep.placeholderNotice}</p>
-              <div className="placeholder-details">
-                <h3>Planned Capabilities:</h3>
-                <ul>
-                  {activeStep.details.map((detail, idx) => (
-                    <li key={idx}>{detail}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            {/* Step 1: Product File */}
+            {currentStepIndex === 0 && (
+              <ProductFileStep
+                spreadsheet={spreadsheet}
+                onSpreadsheetLoaded={handleSpreadsheetLoaded}
+                onNext={() => setCurrentStepIndex(1)}
+              />
+            )}
 
-            {/* Wizard Controls */}
-            <div className="wizard-controls">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handlePrevious}
-                disabled={currentStepIndex === 0}
-              >
-                &larr; Previous
-              </button>
-              <span className="step-indicator-text">
-                {currentStepIndex + 1} / {totalSteps}
-              </span>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleNext}
-                disabled={currentStepIndex === totalSteps - 1}
-              >
-                Next &rarr;
-              </button>
-            </div>
+            {/* Step 2: Column Mapping */}
+            {currentStepIndex === 1 && spreadsheet && (
+              <ColumnMappingStep
+                spreadsheet={spreadsheet}
+                mapping={columnMapping}
+                onMappingChange={setColumnMapping}
+                onPrevious={() => setCurrentStepIndex(0)}
+                onNext={() => setCurrentStepIndex(2)}
+              />
+            )}
+
+            {/* Fallback if Step 2 is accessed directly without spreadsheet */}
+            {currentStepIndex === 1 && !spreadsheet && (
+              <div className="alert-banner alert-warning">
+                Please load a product spreadsheet in Step 1 first.
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginLeft: '1rem' }}
+                  onClick={() => setCurrentStepIndex(0)}
+                >
+                  Go to Step 1
+                </button>
+              </div>
+            )}
+
+            {/* Steps 3 to 6: Placeholders */}
+            {currentStepIndex >= 2 && (
+              <PlaceholderStep
+                step={activeStep}
+                currentStepIndex={currentStepIndex}
+                totalSteps={totalSteps}
+                onPrevious={() => setCurrentStepIndex((prev) => prev - 1)}
+                onNext={() => setCurrentStepIndex((prev) => prev + 1)}
+              />
+            )}
           </section>
         )}
       </main>
