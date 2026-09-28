@@ -109,13 +109,18 @@ describe('Table and Header Normalization', () => {
     expect(missingVal.errorMessage).toContain('does not exist')
   })
 
-  it('auto-suggests column mappings based on English and Turkish headers', () => {
+  it('auto-suggests optional mappings but leaves primary identifier unselected', () => {
     const turkishHeaders = ['Stok Kodu', 'Ürün Adı', 'Barkod', 'Görsel Adı']
     const mapping = suggestColumnMapping(turkishHeaders)
 
-    expect(mapping.primaryKeyColumn).toBe('Stok Kodu')
+    expect(mapping.primaryKeyColumn).toBe('')
     expect(mapping.skuColumn).toBe('Stok Kodu')
     expect(mapping.barcodeColumn).toBe('Barkod')
     expect(mapping.currentFilenameColumn).toBe('Görsel Adı')
+  })
+
+  it('never guesses the primary identifier from the first arbitrary column', () => {
+    const mapping = suggestColumnMapping(['Ürün Adı', 'Renk', 'Fiyat'])
+    expect(mapping.primaryKeyColumn).toBe('')
   })
 })
