@@ -9,12 +9,14 @@ export interface ImageInventoryItem {
   readonly stem: string
   readonly extension: string
   readonly relativePath: string
-  readonly fileSize: number
+  /** Null when size is intentionally not obtained to avoid expanding unsupported ZIP entries. */
+  readonly fileSize: number | null
   readonly mimeType?: string
   readonly sourceMethod: ImageSourceMethod
   readonly isSupported: boolean
   readonly hasDuplicatePath?: boolean
-  readonly fileRef: File | Blob
+  /** Unsupported ZIP entries deliberately retain no extracted Blob to avoid unnecessary memory use. */
+  readonly fileRef: File | Blob | null
 }
 
 export interface ImageInventory {
@@ -26,6 +28,9 @@ export interface ImageInventory {
   readonly totalFileCount: number
   readonly supportedFileCount: number
   readonly unsupportedFileCount: number
+  /** Bytes of the selected source: all selected folder files, or the ZIP archive itself. */
+  readonly totalSourceBytes: number
+  /** Total extracted/selected bytes for supported images only. */
   readonly totalSupportedBytes: number
   readonly hasLargeDatasetWarning: boolean
 }
