@@ -22,7 +22,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     id: 'column-mapping',
     title: '2. Column mapping',
     shortDescription: 'Map product identifiers such as SKU, barcode, and source filename.',
-    placeholderNotice: 'Step 2: Column mapping will be implemented in MVP-03.',
+    placeholderNotice: 'Step 2: Column mapping will be implemented in MVP-02.',
     details: [
       'Select primary product identifier (SKU or barcode).',
       'Optionally map SKU, barcode, and current image filename columns.',
@@ -33,7 +33,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     id: 'images',
     title: '3. Images',
     shortDescription: 'Select product images via folder picker or ZIP archive.',
-    placeholderNotice: 'Step 3: Image selection will be implemented in MVP-04.',
+    placeholderNotice: 'Step 3: Image selection will be implemented in MVP-03.',
     details: [
       'Supports JPEG, PNG, and WebP images.',
       'Import via directory picker or ZIP archive upload.',
@@ -44,7 +44,7 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
     id: 'match-review',
     title: '4. Match review',
     shortDescription: 'Inspect deterministic match results, unmatched items, and ambiguities.',
-    placeholderNotice: 'Step 4: Deterministic matching and review will be implemented in MVP-05 & MVP-06.',
+    placeholderNotice: 'Step 4: Matching will be implemented in MVP-04 and review UI in MVP-05. Output naming and collision reporting follow in MVP-06.',
     details: [
       'Summary counts: products, images, matched, unmatched, duplicates, collisions.',
       'Filterable review table with match method and diagnostic reasons.',
