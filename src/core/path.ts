@@ -8,23 +8,31 @@ export const SUPPORTED_IMAGE_EXTENSIONS: readonly SupportedImageExtension[] = [
 ]
 
 /**
- * Normalizes a file or directory path:
+ * Normalizes an untrusted file or directory path into a safe relative path:
  * - Converts backslashes `\` to forward slashes `/`
- * - Strips leading `./`
- * - Collapses consecutive slashes
- * - Strips leading and trailing slashes
- * - Preserves original casing and characters
+ * - Removes empty and `.` segments
+ * - Resolves `..` segments without allowing traversal above the relative root
+ * - Strips leading/trailing slashes
+ * - Preserves original casing and characters within normal path segments
  */
 export function normalizeRelativePath(rawPath: string): string {
   if (!rawPath) return ''
 
-  return rawPath
-    .trim()
-    .replace(/\\/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/\/+/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '')
+  const unified = rawPath.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
+  const segments: string[] = []
+
+  for (const segment of unified.split('/')) {
+    if (!segment || segment === '.') continue
+
+    if (segment === '..') {
+      segments.pop()
+      continue
+    }
+
+    segments.push(segment)
+  }
+
+  return segments.join('/')
 }
 
 /**
