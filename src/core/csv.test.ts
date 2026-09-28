@@ -57,6 +57,11 @@ describe('CSV Parser and Delimiter Detection', () => {
     expect(rows[1]).toEqual(['ABC-1', 'Line 1\nLine 2'])
   })
 
+  it('rejects an unterminated quoted field as malformed CSV', () => {
+    const csv = 'SKU,Description\nABC-1,"broken value\nABC-2,still inside quote'
+    expect(() => parseCsv(csv)).toThrow('Malformed CSV: unterminated quoted field.')
+  })
+
   it('handles empty or whitespace-only inputs gracefully', () => {
     expect(parseCsv('')).toEqual([])
     expect(detectCsvDelimiter('')).toBe(',')
