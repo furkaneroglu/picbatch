@@ -12,13 +12,13 @@ export const SUPPORTED_IMAGE_EXTENSIONS: readonly SupportedImageExtension[] = [
  * - Converts backslashes `\` to forward slashes `/`
  * - Removes empty and `.` segments
  * - Resolves `..` segments without allowing traversal above the relative root
- * - Strips leading/trailing slashes
- * - Preserves original casing and characters within normal path segments
+ * - Strips leading/trailing slash separators
+ * - Preserves original casing, whitespace, and characters within normal path segments
  */
 export function normalizeRelativePath(rawPath: string): string {
   if (!rawPath) return ''
 
-  const unified = rawPath.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
+  const unified = rawPath.replace(/\\/g, '/').replace(/\/+/g, '/')
   const segments: string[] = []
 
   for (const segment of unified.split('/')) {
