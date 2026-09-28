@@ -322,6 +322,11 @@ body {
   margin-top: 0.5rem;
 }
 
+.dropzone-sub-detail {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
 .dropzone-privacy-badge {
   margin-top: 1rem;
   font-size: 0.775rem;
@@ -329,6 +334,71 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* Image Ingestion Step */
+.image-ingestion-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.image-input-selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.source-method-tabs {
+  display: flex;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+}
+
+.source-tab-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.source-tab-btn:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.source-tab-btn.active {
+  background-color: var(--color-brand-light);
+  border-color: var(--color-brand-border);
+  color: var(--color-brand-primary);
+}
+
+.inventory-details-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.highlight-metric {
+  color: var(--color-brand-primary);
+  font-weight: 600;
+}
+
+.unsupported-metric {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.warning-badge {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
 }
 
 /* Spreadsheet Details View */
