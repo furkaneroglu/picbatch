@@ -24,6 +24,10 @@ describe('Path Normalization and Extension Utilities', () => {
     expect(normalizeRelativePath('../../Supplier/../ABC-2.png')).toBe('ABC-2.png')
   })
 
+  it('preserves whitespace that is part of path segments and filenames', () => {
+    expect(normalizeRelativePath(' Supplier / ABC-1 .JPG ')).toBe(' Supplier / ABC-1 .JPG ')
+  })
+
   it('extracts basename preserving original casing and characters', () => {
     expect(extractBasename('Supplier/Shoes/ABC-1 FRONT.JPG')).toBe('ABC-1 FRONT.JPG')
     expect(extractBasename('photo.png')).toBe('photo.png')
