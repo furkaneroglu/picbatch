@@ -24,3 +24,25 @@ No backend, authentication, billing, cloud storage, Shopify/Trendyol APIs, AI im
 Solve one painful e-commerce operations task quickly and predictably. The MVP favors deterministic behavior, privacy, and clear error reporting over feature breadth.
 
 See [`docs/MVP.md`](docs/MVP.md) for the frozen MVP specification and [`AGENTS.md`](AGENTS.md) for development rules.
+
+## Local development
+
+### Prerequisites
+
+- Node.js (v20+ recommended)
+- npm
+
+### Setup
+
+```bash
+npm install
+```
+
+### Development commands
+
+- **Start dev server:** `npm run dev`
+- **Run typecheck:** `npm run typecheck`
+- **Run linter:** `npm run lint`
+- **Run unit tests:** `npm run test`
+- **Production build:** `npm run build`
+- **Preview production build:** `npm run preview`
