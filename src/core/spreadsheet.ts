@@ -1,5 +1,6 @@
 import type {
   ParsedSpreadsheet,
+  ParsedSheetData,
   SpreadsheetFileType,
 } from '../types/spreadsheet'
 import { detectCsvDelimiter, parseCsv } from './csv'
@@ -29,6 +30,13 @@ export function getSpreadsheetFileType(fileName: string): SpreadsheetFileType {
   )
 }
 
+function requireUsableDataRows(sheet: ParsedSheetData, context: string): ParsedSheetData {
+  if (sheet.totalRowCount === 0) {
+    throw new Error(`${context} contains a header row but no usable data rows.`)
+  }
+  return sheet
+}
+
 /**
  * High-level browser loader that parses a selected File locally into a ParsedSpreadsheet.
  * Never performs network requests or uploads.
@@ -49,7 +57,10 @@ export async function parseSpreadsheetFile(file: File): Promise<ParsedSpreadshee
 
     const detectedDelimiter = detectCsvDelimiter(rawText)
     const rawRows = parseCsv(rawText, detectedDelimiter)
-    const currentSheet = processRawMatrixToSheetData(file.name, rawRows)
+    const currentSheet = requireUsableDataRows(
+      processRawMatrixToSheetData(file.name, rawRows),
+      `The CSV file "${file.name}"`,
+    )
 
     return {
       fileName: file.name,
@@ -67,23 +78,27 @@ export async function parseSpreadsheetFile(file: File): Promise<ParsedSpreadshee
   const xlsxResult = parseXlsxWorkbook(arrayBuffer)
   const sheetNames = xlsxResult.sheetNames
 
-  // Find first sheet that has rows, or fallback to first sheet
-  let activeSheetName = sheetNames[0] ?? 'Sheet1'
-  let rawRows = xlsxResult.getRawSheetRows(activeSheetName)
+  // Select the first worksheet that can actually provide headers and at least one data row.
+  let activeSheetName: string | null = null
+  let currentSheet: ParsedSheetData | null = null
 
-  // Try finding a sheet with content if first is empty
-  if (rawRows.length === 0 && sheetNames.length > 1) {
-    for (const name of sheetNames) {
-      const candidateRows = xlsxResult.getRawSheetRows(name)
-      if (candidateRows.length > 0) {
-        activeSheetName = name
-        rawRows = candidateRows
-        break
-      }
+  for (const name of sheetNames) {
+    try {
+      const candidateSheet = requireUsableDataRows(
+        processRawMatrixToSheetData(name, xlsxResult.getRawSheetRows(name)),
+        `Worksheet "${name}"`,
+      )
+      activeSheetName = name
+      currentSheet = candidateSheet
+      break
+    } catch {
+      // Keep scanning. A workbook often contains cover/instructions/blank sheets before catalog data.
     }
   }
 
-  const currentSheet = processRawMatrixToSheetData(activeSheetName, rawRows)
+  if (!activeSheetName || !currentSheet) {
+    throw new Error('Excel workbook contains no usable worksheets with a header row and data rows.')
+  }
 
   return {
     fileName: file.name,
@@ -109,7 +124,10 @@ export function switchSpreadsheetSheet(
 
   const xlsxResult = spreadsheet._workbookRef as ParsedXlsxResult
   const rawRows = xlsxResult.getRawSheetRows(targetSheetName)
-  const currentSheet = processRawMatrixToSheetData(targetSheetName, rawRows)
+  const currentSheet = requireUsableDataRows(
+    processRawMatrixToSheetData(targetSheetName, rawRows),
+    `Worksheet "${targetSheetName}"`,
+  )
 
   return {
     ...spreadsheet,
