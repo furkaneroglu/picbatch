@@ -33,6 +33,11 @@ describe('Spreadsheet Loader and Dispatcher', () => {
     await expect(parseSpreadsheetFile(whitespaceFile)).rejects.toThrow('is empty')
   })
 
+  it('rejects CSV with headers but no usable data rows', async () => {
+    const headerOnlyFile = new File(['SKU;Barkod\n\n'], 'headers-only.csv', { type: 'text/csv' })
+    await expect(parseSpreadsheetFile(headerOnlyFile)).rejects.toThrow('no usable data rows')
+  })
+
   it('parses valid CSV File object', async () => {
     const content = 'SKU;Barkod;Fiyat\nTR-01;00123;10,00\nTR-02;00124;15,00'
     const file = new File([content], 'products.csv', { type: 'text/csv' })
@@ -77,5 +82,38 @@ describe('Spreadsheet Loader and Dispatcher', () => {
     expect(switched.activeSheetName).toBe('Secondary')
     expect(switched.currentSheet.headers).toEqual(['Barcode', 'Detail'])
     expect(switched.currentSheet.rows[0]?.['Barcode']).toBe('8690001')
+  })
+
+  it('defaults to the first usable XLSX sheet instead of a cover/header-only sheet', async () => {
+    const wb = XLSX.utils.book_new()
+    const cover = XLSX.utils.aoa_to_sheet([['Catalog Instructions']])
+    const products = XLSX.utils.aoa_to_sheet([
+      ['SKU', 'Name'],
+      ['P-001', 'Product 1'],
+    ])
+    XLSX.utils.book_append_sheet(wb, cover, 'Read Me')
+    XLSX.utils.book_append_sheet(wb, products, 'Products')
+
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+    const file = new File([buf], 'multi.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+
+    const parsed = await parseSpreadsheetFile(file)
+    expect(parsed.activeSheetName).toBe('Products')
+    expect(parsed.currentSheet.rows[0]?.['SKU']).toBe('P-001')
+  })
+
+  it('rejects XLSX workbooks with no usable worksheets', async () => {
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Instructions only']]), 'Read Me')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([]), 'Empty')
+
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+    const file = new File([buf], 'unusable.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+
+    await expect(parseSpreadsheetFile(file)).rejects.toThrow('no usable worksheets')
   })
 })
