@@ -20,12 +20,14 @@ export function buildImageInventoryFromFiles(
   sourceName?: string,
 ): ImageInventory {
   const pathCounts = new Map<string, number>()
+  let totalSourceBytes = 0
 
-  // First pass: count paths to detect duplicates
+  // First pass: count normalized paths to detect duplicates and total selected bytes.
   for (const file of files) {
     const rawPath = file.webkitRelativePath || file.name
     const normalized = normalizeRelativePath(rawPath)
     pathCounts.set(normalized, (pathCounts.get(normalized) ?? 0) + 1)
+    totalSourceBytes += file.size
   }
 
   const items: ImageInventoryItem[] = []
@@ -86,6 +88,7 @@ export function buildImageInventoryFromFiles(
     totalFileCount: items.length,
     supportedFileCount: supportedItems.length,
     unsupportedFileCount: unsupportedItems.length,
+    totalSourceBytes,
     totalSupportedBytes,
     hasLargeDatasetWarning:
       supportedItems.length > LARGE_DATASET_COUNT_THRESHOLD ||
@@ -124,7 +127,8 @@ export async function buildImageInventoryFromZip(zipFile: File): Promise<ImageIn
   const entries = Object.values(zip.files)
   const pathCounts = new Map<string, number>()
 
-  // Filter out directories and collect paths
+  // Filter out directories and collect paths. JSZip sanitizes unsafe `..` segments on load;
+  // normalizeRelativePath applies the same safety rule to every source method.
   const fileEntries: JSZip.JSZipObject[] = []
   for (const entry of entries) {
     if (entry.dir || entry.name.endsWith('/')) {
@@ -151,20 +155,24 @@ export async function buildImageInventoryFromZip(zipFile: File): Promise<ImageIn
     const isSupported = isSupportedImageExtension(extension)
     const hasDuplicatePath = (pathCounts.get(relativePath) ?? 0) > 1
 
-    let fileRef: Blob
-    let fileSize: number
+    let fileRef: Blob | null = null
+    let fileSize: number | null = null
     let mimeType: string | undefined
 
     if (isSupported) {
       mimeType = getImageMimeType(extension)
-      const rawBlob = await entry.async('blob')
-      fileRef = mimeType ? new Blob([rawBlob], { type: mimeType }) : rawBlob
-      fileSize = fileRef.size
-      totalSupportedBytes += fileSize
-    } else {
-      // For unsupported files, do not expand uncompressed bytes into memory
-      fileRef = new Blob([])
-      fileSize = 0
+      try {
+        // Keep the blob returned by JSZip directly. MIME type is tracked separately to avoid
+        // creating an unnecessary second Blob wrapper around the same image bytes.
+        fileRef = await entry.async('blob')
+        fileSize = fileRef.size
+        totalSupportedBytes += fileSize
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        throw new Error(`Failed to extract image "${relativePath}" from ZIP archive: ${message}`, {
+          cause: err,
+        })
+      }
     }
 
     items.push({
@@ -201,6 +209,7 @@ export async function buildImageInventoryFromZip(zipFile: File): Promise<ImageIn
     totalFileCount: items.length,
     supportedFileCount: supportedItems.length,
     unsupportedFileCount: unsupportedItems.length,
+    totalSourceBytes: zipFile.size,
     totalSupportedBytes,
     hasLargeDatasetWarning:
       supportedItems.length > LARGE_DATASET_COUNT_THRESHOLD ||
