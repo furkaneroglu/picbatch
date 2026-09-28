@@ -171,7 +171,8 @@ export function validatePrimaryIdentifierColumn(
 }
 
 /**
- * Suggests default column mappings based on common English and Turkish header patterns.
+ * Suggests optional column mappings based on common English and Turkish header patterns.
+ * The primary identifier is intentionally left blank so the user must choose it explicitly.
  */
 export function suggestColumnMapping(headers: readonly string[]): ColumnMapping {
   const normalizeForMatch = (h: string) =>
@@ -186,7 +187,7 @@ export function suggestColumnMapping(headers: readonly string[]): ColumnMapping 
       const found = headers.find((h) => normalizeForMatch(h) === normCand)
       if (found) return found
     }
-    // Substring fallback
+    // Substring fallback is only used for optional suggestions. The user still chooses the primary key explicitly.
     for (const candidate of candidates) {
       const normCand = normalizeForMatch(candidate)
       const found = headers.find((h) => normalizeForMatch(h).includes(normCand))
@@ -213,11 +214,8 @@ export function suggestColumnMapping(headers: readonly string[]): ColumnMapping 
   const detectedBarcode = findHeader(barcodeCandidates)
   const detectedFilename = findHeader(filenameCandidates)
 
-  // Primary key preference: SKU, then Barcode, then first header if available
-  const primaryKey = detectedSku || detectedBarcode || headers[0] || ''
-
   return {
-    primaryKeyColumn: primaryKey,
+    primaryKeyColumn: '',
     skuColumn: detectedSku,
     barcodeColumn: detectedBarcode,
     currentFilenameColumn: detectedFilename,
