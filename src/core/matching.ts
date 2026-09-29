@@ -236,6 +236,18 @@ export function executeDeterministicMatching(
     }
   }
 
+  // Build counts of supported source images by normalized basename and stem
+  // to detect indistinguishable/ambiguous explicit source files
+  const sourceBasenameCounts = new Map<string, number>()
+  const sourceStemCounts = new Map<string, number>()
+
+  for (const item of inventory.supportedItems) {
+    const b = normalizeFilenameBasename(item.basename)
+    const s = normalizeFilenameStem(item.basename)
+    sourceBasenameCounts.set(b, (sourceBasenameCounts.get(b) ?? 0) + 1)
+    sourceStemCounts.set(s, (sourceStemCounts.get(s) ?? 0) + 1)
+  }
+
   const rawImageResults: ImageMatchResult[] = []
 
   // Process all items in inventory in order
@@ -257,66 +269,132 @@ export function executeDeterministicMatching(
     const imgStem = normalizeFilenameStem(item.basename)
 
     // --- Step 1: Explicit Current Filename Matching (Highest Precedence) ---
-    let explicitMatches: ProductRecord[] | null = null
-
     if (mapping.currentFilenameColumn) {
-      // Try exact basename match first
+      // 1. Try exact basename match
       const exactBasename = explicitBasenameIndex.get(imgBasename)
       if (exactBasename && exactBasename.length > 0) {
-        explicitMatches = exactBasename
-      } else {
-        // Fallback: extension-insensitive stem match
-        const exactStem = explicitStemIndex.get(imgStem)
-        if (exactStem && exactStem.length > 0) {
-          explicitMatches = exactStem
+        // If multiple supported source images share this exact basename,
+        // they are indistinguishable for explicit matching -> ambiguous_match!
+        const sourceBasenameCount = sourceBasenameCounts.get(imgBasename) ?? 0
+        if (sourceBasenameCount > 1) {
+          rawImageResults.push({
+            item,
+            status: 'ambiguous_match',
+            matchMethod: 'explicit_filename',
+            matchedProductRowIndex: null,
+            primaryIdentifier: null,
+            reason: `Multiple source images share the explicit filename "${imgBasename}"`,
+          })
+          continue
         }
-      }
-    }
 
-    if (explicitMatches !== null) {
-      if (explicitMatches.length === 1) {
-        const product = explicitMatches[0]!
-        if (product.status === 'duplicate_product_key') {
-          rawImageResults.push({
-            item,
-            status: 'duplicate_product_key',
-            matchMethod: 'explicit_filename',
-            matchedProductRowIndex: product.rowIndex,
-            matchedProduct: product,
-            primaryIdentifier: product.primaryIdentifierRaw,
-            reason: `Matched product has duplicate primary key: "${product.primaryIdentifierRaw}"`,
-          })
-        } else if (product.status === 'invalid_product_key') {
-          rawImageResults.push({
-            item,
-            status: 'invalid_product_key',
-            matchMethod: 'explicit_filename',
-            matchedProductRowIndex: product.rowIndex,
-            matchedProduct: product,
-            primaryIdentifier: product.primaryIdentifierRaw,
-            reason: 'Matched product has blank primary key',
-          })
+        if (exactBasename.length === 1) {
+          const product = exactBasename[0]!
+          if (product.status === 'duplicate_product_key') {
+            rawImageResults.push({
+              item,
+              status: 'duplicate_product_key',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+              reason: `Matched product has duplicate primary key: "${product.primaryIdentifierRaw}"`,
+            })
+          } else if (product.status === 'invalid_product_key') {
+            rawImageResults.push({
+              item,
+              status: 'invalid_product_key',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+              reason: 'Matched product has blank primary key',
+            })
+          } else {
+            rawImageResults.push({
+              item,
+              status: 'matched',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+            })
+          }
+          continue
         } else {
           rawImageResults.push({
             item,
-            status: 'matched',
+            status: 'ambiguous_match',
             matchMethod: 'explicit_filename',
-            matchedProductRowIndex: product.rowIndex,
-            matchedProduct: product,
-            primaryIdentifier: product.primaryIdentifierRaw,
+            matchedProductRowIndex: null,
+            primaryIdentifier: null,
+            reason: `Explicit filename matches ${exactBasename.length} product rows`,
           })
+          continue
         }
-        continue
-      } else {
-        rawImageResults.push({
-          item,
-          status: 'ambiguous_match',
-          matchMethod: 'explicit_filename',
-          matchedProductRowIndex: null,
-          primaryIdentifier: null,
-          reason: `Explicit filename matches ${explicitMatches.length} product rows`,
-        })
-        continue
+      }
+
+      // 2. Safe extension-insensitive stem fallback:
+      // Only allowed when a product mapped this stem AND only 1 source image shares this stem.
+      const exactStem = explicitStemIndex.get(imgStem)
+      if (exactStem && exactStem.length > 0) {
+        const sourceStemCount = sourceStemCounts.get(imgStem) ?? 0
+        if (sourceStemCount > 1) {
+          rawImageResults.push({
+            item,
+            status: 'ambiguous_match',
+            matchMethod: 'explicit_filename',
+            matchedProductRowIndex: null,
+            primaryIdentifier: null,
+            reason: `Multiple source images share the stem "${imgStem}" for explicit filename fallback`,
+          })
+          continue
+        }
+
+        if (exactStem.length === 1) {
+          const product = exactStem[0]!
+          if (product.status === 'duplicate_product_key') {
+            rawImageResults.push({
+              item,
+              status: 'duplicate_product_key',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+              reason: `Matched product has duplicate primary key: "${product.primaryIdentifierRaw}"`,
+            })
+          } else if (product.status === 'invalid_product_key') {
+            rawImageResults.push({
+              item,
+              status: 'invalid_product_key',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+              reason: 'Matched product has blank primary key',
+            })
+          } else {
+            rawImageResults.push({
+              item,
+              status: 'matched',
+              matchMethod: 'explicit_filename',
+              matchedProductRowIndex: product.rowIndex,
+              matchedProduct: product,
+              primaryIdentifier: product.primaryIdentifierRaw,
+            })
+          }
+          continue
+        } else {
+          rawImageResults.push({
+            item,
+            status: 'ambiguous_match',
+            matchMethod: 'explicit_filename',
+            matchedProductRowIndex: null,
+            primaryIdentifier: null,
+            reason: `Explicit filename stem matches ${exactStem.length} product rows`,
+          })
+          continue
+        }
       }
     }
 

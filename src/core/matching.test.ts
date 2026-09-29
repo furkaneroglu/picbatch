@@ -213,6 +213,66 @@ describe('Deterministic Matching Engine', () => {
       expect(result.imageResults[0]?.status).toBe('ambiguous_match')
       expect(result.imageResults[0]?.reason).toContain('Explicit filename matches 2 product rows')
     })
+
+    it('rejects multiple source images sharing the explicit filename basename as ambiguous_match', () => {
+      const rows = [{ SKU: 'PROD-1', CurrentFilename: 'front.jpg' }]
+      const inventory = createMockInventory(['folder-a/front.jpg', 'folder-b/front.jpg'])
+
+      const result = executeDeterministicMatching(rows, mapping, inventory)
+
+      expect(result.summary.matchedImages).toBe(0)
+      expect(result.summary.ambiguousMatches).toBe(2)
+      expect(result.summary.unmatchedProducts).toBe(1)
+
+      const imgA = result.imageResults.find((r) => r.item.relativePath === 'folder-a/front.jpg')
+      const imgB = result.imageResults.find((r) => r.item.relativePath === 'folder-b/front.jpg')
+
+      expect(imgA?.status).toBe('ambiguous_match')
+      expect(imgA?.matchMethod).toBe('explicit_filename')
+      expect(imgA?.reason).toContain('Multiple source images share the explicit filename "front.jpg"')
+
+      expect(imgB?.status).toBe('ambiguous_match')
+      expect(imgB?.matchMethod).toBe('explicit_filename')
+      expect(imgB?.reason).toContain('Multiple source images share the explicit filename "front.jpg"')
+    })
+
+    it('matches exact basename but rejects stem fallback as ambiguous_match when multiple source images share stem', () => {
+      const rows = [{ SKU: 'PROD-1', CurrentFilename: 'front.jpg' }]
+      const inventory = createMockInventory(['front.jpg', 'front.png'])
+
+      const result = executeDeterministicMatching(rows, mapping, inventory)
+
+      expect(result.summary.matchedImages).toBe(1)
+      expect(result.summary.ambiguousMatches).toBe(1)
+
+      const exactMatch = result.imageResults.find((r) => r.item.basename === 'front.jpg')
+      const stemAmbiguous = result.imageResults.find((r) => r.item.basename === 'front.png')
+
+      expect(exactMatch?.status).toBe('matched')
+      expect(exactMatch?.matchMethod).toBe('explicit_filename')
+      expect(exactMatch?.matchedProduct?.primaryIdentifierRaw).toBe('PROD-1')
+
+      expect(stemAmbiguous?.status).toBe('ambiguous_match')
+      expect(stemAmbiguous?.matchMethod).toBe('explicit_filename')
+      expect(stemAmbiguous?.reason).toContain(
+        'Multiple source images share the stem "front" for explicit filename fallback',
+      )
+    })
+
+    it('allows safe extension-insensitive explicit match when only a single source image shares that stem', () => {
+      const rows = [{ SKU: 'PROD-1', CurrentFilename: 'front.jpg' }]
+      const inventory = createMockInventory(['front.png'])
+
+      const result = executeDeterministicMatching(rows, mapping, inventory)
+
+      expect(result.summary.matchedImages).toBe(1)
+      expect(result.summary.ambiguousMatches).toBe(0)
+
+      const match = result.imageResults.find((r) => r.item.basename === 'front.png')
+      expect(match?.status).toBe('matched')
+      expect(match?.matchMethod).toBe('explicit_filename')
+      expect(match?.matchedProduct?.primaryIdentifierRaw).toBe('PROD-1')
+    })
   })
 
   describe('SKU and Barcode Matching with Disagreement & Duplicates', () => {
