@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { WORKFLOW_STEPS, getTotalStepCount } from './steps'
 import type { ColumnMapping, ParsedSpreadsheet } from './types/spreadsheet'
+import type { ImageInventory } from './types/image'
 import { suggestColumnMapping, validatePrimaryIdentifierColumn } from './core/table'
 import { ProductFileStep } from './components/ProductFileStep'
 import { ColumnMappingStep } from './components/ColumnMappingStep'
+import { ImageIngestionStep } from './components/ImageIngestionStep'
 import { PlaceholderStep } from './components/PlaceholderStep'
 import './App.css'
 
@@ -16,6 +18,7 @@ export function App() {
     barcodeColumn: null,
     currentFilenameColumn: null,
   })
+  const [imageInventory, setImageInventory] = useState<ImageInventory | null>(null)
 
   const totalSteps = getTotalStepCount()
   const activeStep = WORKFLOW_STEPS[currentStepIndex]
@@ -32,13 +35,19 @@ export function App() {
     if (!spreadsheet) return false
     if (stepIndex === 1) return true
 
-    // For step 2 onwards, primary identifier must be valid
+    // For step 2 (Images) onwards, primary identifier must be valid
     const validation = validatePrimaryIdentifierColumn(
       columnMapping.primaryKeyColumn,
       spreadsheet.currentSheet.headers,
       spreadsheet.currentSheet.rows,
     )
-    return validation.isValid
+    if (!validation.isValid) return false
+    if (stepIndex === 2) return true
+
+    // For step 3 (Match review) onwards, at least 1 supported image is required
+    if (!imageInventory || imageInventory.supportedFileCount === 0) return false
+
+    return true
   }
 
   const handleStepClick = (index: number) => {
@@ -139,8 +148,19 @@ export function App() {
               </div>
             )}
 
-            {/* Steps 3 to 6: Placeholders */}
-            {currentStepIndex >= 2 && (
+            {/* Step 3: Images */}
+            {currentStepIndex === 2 && (
+              <ImageIngestionStep
+                inventory={imageInventory}
+                onInventoryLoaded={setImageInventory}
+                onClearInventory={() => setImageInventory(null)}
+                onPrevious={() => setCurrentStepIndex(1)}
+                onNext={() => setCurrentStepIndex(3)}
+              />
+            )}
+
+            {/* Steps 4 to 6: Placeholders */}
+            {currentStepIndex >= 3 && (
               <PlaceholderStep
                 step={activeStep}
                 currentStepIndex={currentStepIndex}
