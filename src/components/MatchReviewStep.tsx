@@ -7,7 +7,7 @@ import {
   filterReviewRows,
   formatMatchMethod,
   formatMatchStatus,
-  getProblemCounts,
+  getReviewStatusCounts,
   type ReviewFilter,
 } from '../core/review'
 
@@ -49,22 +49,10 @@ export function MatchReviewStep({
     return buildReviewRows(matchResult)
   }, [matchResult])
 
-  // Aggregate problem counts
-  const problemCounts = useMemo(() => {
-    if (!matchResult) {
-      return {
-        totalProblems: 0,
-        unmatchedImages: 0,
-        unmatchedProducts: 0,
-        invalidProducts: 0,
-        duplicateProducts: 0,
-        ambiguousMatches: 0,
-        unsupportedFiles: 0,
-        outputCollisions: 0,
-      }
-    }
-    return getProblemCounts(matchResult.summary)
-  }, [matchResult])
+  // Derive status counts directly from ReviewRows so filter numbers exactly match table rows
+  const statusCounts = useMemo(() => {
+    return getReviewStatusCounts(allRows)
+  }, [allRows])
 
   // Filter rows based on active category/status filter and search query
   const filteredRows = useMemo(() => {
@@ -145,13 +133,13 @@ export function MatchReviewStep({
             <span className="stat-sub">Ready for output processing</span>
           </div>
 
-          <div className={`stat-card ${problemCounts.totalProblems > 0 ? 'stat-card-problems' : 'stat-card-clean'}`}>
-            <span className={`stat-value ${problemCounts.totalProblems > 0 ? 'stat-value-warning' : 'stat-value-success'}`}>
-              {problemCounts.totalProblems}
+          <div className={`stat-card ${statusCounts.totalProblems > 0 ? 'stat-card-problems' : 'stat-card-clean'}`}>
+            <span className={`stat-value ${statusCounts.totalProblems > 0 ? 'stat-value-warning' : 'stat-value-success'}`}>
+              {statusCounts.totalProblems}
             </span>
             <span className="stat-label">Total Problems</span>
             <span className="stat-sub">
-              {problemCounts.totalProblems > 0
+              {statusCounts.totalProblems > 0
                 ? 'Will be excluded from processing'
                 : 'Zero problems detected'}
             </span>
@@ -168,80 +156,80 @@ export function MatchReviewStep({
               onClick={() => handleFilterChange('matched')}
             >
               <span>Matched:</span>
-              <span className="breakdown-chip-count">{summary.matchedImages}</span>
+              <span className="breakdown-chip-count">{statusCounts.matched}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.unmatchedImages > 0 ? 'has-issues' : ''} ${filter === 'unmatched_image' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.unmatched_image > 0 ? 'has-issues' : ''} ${filter === 'unmatched_image' ? 'active' : ''}`}
               onClick={() => handleFilterChange('unmatched_image')}
             >
               <span>Unmatched images:</span>
-              <span className="breakdown-chip-count">{summary.unmatchedImages}</span>
+              <span className="breakdown-chip-count">{statusCounts.unmatched_image}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.unmatchedProducts > 0 ? 'has-issues' : ''} ${filter === 'unmatched_product' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.unmatched_product > 0 ? 'has-issues' : ''} ${filter === 'unmatched_product' ? 'active' : ''}`}
               onClick={() => handleFilterChange('unmatched_product')}
             >
               <span>Unmatched products:</span>
-              <span className="breakdown-chip-count">{summary.unmatchedProducts}</span>
+              <span className="breakdown-chip-count">{statusCounts.unmatched_product}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.ambiguousMatches > 0 ? 'has-issues' : ''} ${filter === 'ambiguous_match' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.ambiguous_match > 0 ? 'has-issues' : ''} ${filter === 'ambiguous_match' ? 'active' : ''}`}
               onClick={() => handleFilterChange('ambiguous_match')}
             >
               <span>Ambiguous matches:</span>
-              <span className="breakdown-chip-count">{summary.ambiguousMatches}</span>
+              <span className="breakdown-chip-count">{statusCounts.ambiguous_match}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.duplicateProducts > 0 ? 'has-issues' : ''} ${filter === 'duplicate_product_key' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.duplicate_product_key > 0 ? 'has-issues' : ''} ${filter === 'duplicate_product_key' ? 'active' : ''}`}
               onClick={() => handleFilterChange('duplicate_product_key')}
             >
-              <span>Duplicate product keys:</span>
-              <span className="breakdown-chip-count">{summary.duplicateProducts}</span>
+              <span>Duplicate-key cases:</span>
+              <span className="breakdown-chip-count">{statusCounts.duplicate_product_key}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.invalidProducts > 0 ? 'has-issues' : ''} ${filter === 'invalid_product_key' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.invalid_product_key > 0 ? 'has-issues' : ''} ${filter === 'invalid_product_key' ? 'active' : ''}`}
               onClick={() => handleFilterChange('invalid_product_key')}
             >
               <span>Invalid product keys:</span>
-              <span className="breakdown-chip-count">{summary.invalidProducts}</span>
+              <span className="breakdown-chip-count">{statusCounts.invalid_product_key}</span>
             </button>
 
             <button
               type="button"
-              className={`breakdown-chip ${summary.unsupportedFiles > 0 ? 'has-issues' : ''} ${filter === 'unsupported_file' ? 'active' : ''}`}
+              className={`breakdown-chip ${statusCounts.unsupported_file > 0 ? 'has-issues' : ''} ${filter === 'unsupported_file' ? 'active' : ''}`}
               onClick={() => handleFilterChange('unsupported_file')}
             >
               <span>Unsupported files:</span>
-              <span className="breakdown-chip-count">{summary.unsupportedFiles}</span>
+              <span className="breakdown-chip-count">{statusCounts.unsupported_file}</span>
             </button>
 
             <span className="breakdown-chip" title="Output collisions are detected during MVP-06 naming step">
               <span>Output collisions:</span>
-              <span className="breakdown-chip-count">0</span>
+              <span className="breakdown-chip-count">{statusCounts.output_collision}</span>
             </span>
           </div>
         </div>
 
         {/* Operational Problem Alert / Notice */}
-        {problemCounts.totalProblems > 0 && (
+        {statusCounts.totalProblems > 0 && (
           <div className="alert-banner alert-warning" role="status">
             <div>
-              <strong>{problemCounts.totalProblems} unresolved problem(s) detected:</strong> Only safely matched images ({summary.matchedImages}) will be processed. Unmatched items and ambiguous matches will be safely excluded from output file generation.
+              <strong>{statusCounts.totalProblems} unresolved problem(s) detected:</strong> Only safely matched images ({statusCounts.matched}) will be processed. Unmatched items and ambiguous matches will be safely excluded from output file generation.
             </div>
           </div>
         )}
 
-        {summary.matchedImages === 0 && (
+        {statusCounts.matched === 0 && (
           <div className="alert-banner alert-warning" role="status">
             <div>
               <strong>No safe matches:</strong> None of the selected images could be safely matched to product identifiers. You may return to Column Mapping or review the diagnostic reasons below.
@@ -249,10 +237,10 @@ export function MatchReviewStep({
           </div>
         )}
 
-        {problemCounts.totalProblems === 0 && summary.matchedImages > 0 && (
+        {statusCounts.totalProblems === 0 && statusCounts.matched > 0 && (
           <div className="alert-banner alert-success" role="status">
             <div>
-              <strong>Clean match:</strong> All {summary.matchedImages} image(s) matched products safely with zero ambiguous or conflicting cases.
+              <strong>Clean match:</strong> All {statusCounts.matched} image(s) matched products safely with zero ambiguous or conflicting cases.
             </div>
           </div>
         )}
@@ -266,21 +254,21 @@ export function MatchReviewStep({
             className={`filter-tab-btn ${filter === 'all' ? 'active' : ''}`}
             onClick={() => handleFilterChange('all')}
           >
-            All ({allRows.length})
+            All ({statusCounts.total})
           </button>
           <button
             type="button"
-            className={`filter-tab-btn tab-problems ${problemCounts.totalProblems > 0 ? 'has-problems' : ''} ${filter === 'problems' ? 'active' : ''}`}
+            className={`filter-tab-btn tab-problems ${statusCounts.totalProblems > 0 ? 'has-problems' : ''} ${filter === 'problems' ? 'active' : ''}`}
             onClick={() => handleFilterChange('problems')}
           >
-            Problems ({problemCounts.totalProblems})
+            Problems ({statusCounts.totalProblems})
           </button>
           <button
             type="button"
             className={`filter-tab-btn ${filter === 'matched' ? 'active' : ''}`}
             onClick={() => handleFilterChange('matched')}
           >
-            Matched ({summary.matchedImages})
+            Matched ({statusCounts.matched})
           </button>
         </div>
 
@@ -291,15 +279,15 @@ export function MatchReviewStep({
             onChange={(e) => handleFilterChange(e.target.value as ReviewFilter)}
             aria-label="Filter by status"
           >
-            <option value="all">All statuses ({allRows.length})</option>
-            <option value="problems">Problems only ({problemCounts.totalProblems})</option>
-            <option value="matched">Matched ({summary.matchedImages})</option>
-            <option value="unmatched_image">Unmatched images ({summary.unmatchedImages})</option>
-            <option value="unmatched_product">Unmatched products ({summary.unmatchedProducts})</option>
-            <option value="ambiguous_match">Ambiguous matches ({summary.ambiguousMatches})</option>
-            <option value="duplicate_product_key">Duplicate product keys ({summary.duplicateProducts})</option>
-            <option value="invalid_product_key">Invalid product keys ({summary.invalidProducts})</option>
-            <option value="unsupported_file">Unsupported files ({summary.unsupportedFiles})</option>
+            <option value="all">All statuses ({statusCounts.total})</option>
+            <option value="problems">Problems only ({statusCounts.totalProblems})</option>
+            <option value="matched">Matched ({statusCounts.matched})</option>
+            <option value="unmatched_image">Unmatched images ({statusCounts.unmatched_image})</option>
+            <option value="unmatched_product">Unmatched products ({statusCounts.unmatched_product})</option>
+            <option value="ambiguous_match">Ambiguous matches ({statusCounts.ambiguous_match})</option>
+            <option value="duplicate_product_key">Duplicate-key cases ({statusCounts.duplicate_product_key})</option>
+            <option value="invalid_product_key">Invalid product keys ({statusCounts.invalid_product_key})</option>
+            <option value="unsupported_file">Unsupported files ({statusCounts.unsupported_file})</option>
           </select>
 
           <input
@@ -474,7 +462,7 @@ export function MatchReviewStep({
           type="button"
           className="btn btn-primary"
           onClick={onNext}
-          title={summary.matchedImages === 0 ? 'No matched images to process, but you can inspect subsequent steps' : ''}
+          title={statusCounts.matched === 0 ? 'No matched images to process, but you can inspect subsequent steps' : ''}
         >
           Continue to Processing &rarr;
         </button>

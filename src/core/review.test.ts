@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ImageInventoryItem } from '../types/image'
-import type { MatchingEngineResult, ProductRecord } from '../types/matching'
+import type { MatchingEngineResult, MatchStatus, ProductRecord } from '../types/matching'
 import {
   buildReviewRows,
   filterReviewRows,
   formatMatchMethod,
   formatMatchStatus,
   getProblemCounts,
+  getReviewStatusCounts,
 } from './review'
 
 function createMockImage(relativePath: string, isSupported = true): ImageInventoryItem {
@@ -545,6 +546,110 @@ describe('Match Review Logic (src/core/review.ts)', () => {
       expect(rows[0]?.status).toBe('duplicate_product_key')
       expect(rows[1]?.status).toBe('duplicate_product_key')
       expect(getProblemCounts(dupResult.summary).duplicateProducts).toBe(2)
+    })
+  })
+
+  describe('getReviewStatusCounts and Filter Counts Consistency Invariants', () => {
+    it('1. duplicate product + image case counts all visible duplicate rows', () => {
+      const dupProd1 = createMockProduct(0, 'DUP-SKU', 'duplicate_product_key', 'Duplicate')
+      const dupProd2 = createMockProduct(1, 'DUP-SKU', 'duplicate_product_key', 'Duplicate')
+      const dupImg = createMockImage('DUP-SKU.jpg')
+
+      const dupResult: MatchingEngineResult = {
+        products: [dupProd1, dupProd2],
+        imageResults: [
+          {
+            item: dupImg,
+            status: 'duplicate_product_key',
+            matchMethod: 'primary_identifier',
+            matchedProductRowIndex: null,
+            primaryIdentifier: null,
+            reason: 'Matched primary identifier has duplicate rows',
+          },
+        ],
+        matchedImages: [],
+        unmatchedImages: [],
+        ambiguousImages: [],
+        unmatchedProducts: [],
+        invalidProducts: [],
+        duplicateProducts: [dupProd1, dupProd2],
+        unsupportedFiles: [],
+        summary: {
+          totalProducts: 2,
+          validProducts: 0,
+          invalidProducts: 0,
+          duplicateProducts: 2, // Note: engine summary only counts product records (2)
+          totalImages: 1,
+          supportedImages: 1,
+          unsupportedFiles: 0,
+          matchedImages: 0,
+          unmatchedImages: 0,
+          ambiguousMatches: 0,
+          unmatchedProducts: 0,
+        },
+      }
+
+      const rows = buildReviewRows(dupResult)
+      const counts = getReviewStatusCounts(rows)
+
+      // Expected: 3 rows with duplicate_product_key
+      const dupRows = rows.filter((r) => r.status === 'duplicate_product_key')
+      expect(dupRows).toHaveLength(3)
+
+      // displayed/status count helper reports 3
+      expect(counts.duplicate_product_key).toBe(3)
+
+      // filterReviewRows(rows, 'duplicate_product_key') returns 3
+      expect(filterReviewRows(rows, 'duplicate_product_key')).toHaveLength(3)
+    })
+
+    it('2. problems invariant: counts.totalProblems strictly equals filterReviewRows(rows, "problems").length', () => {
+      const result = createComprehensiveMockResult()
+      const rows = buildReviewRows(result)
+      const counts = getReviewStatusCounts(rows)
+
+      const problemRows = filterReviewRows(rows, 'problems')
+      expect(counts.totalProblems).toBe(problemRows.length)
+      expect(counts.totalProblems).toBe(rows.filter((r) => r.isProblem).length)
+    })
+
+    it('3. per-status invariant: counts[status] strictly equals filterReviewRows(rows, status).length', () => {
+      const result = createComprehensiveMockResult()
+      const rows = buildReviewRows(result)
+      const counts = getReviewStatusCounts(rows)
+
+      const statuses: MatchStatus[] = [
+        'matched',
+        'unmatched_image',
+        'unmatched_product',
+        'invalid_product_key',
+        'duplicate_product_key',
+        'ambiguous_match',
+        'unsupported_file',
+        'output_collision',
+      ]
+
+      for (const status of statuses) {
+        expect(counts[status]).toBe(filterReviewRows(rows, status).length)
+      }
+    })
+
+    it('4. matched invariant: counts.matched strictly equals filterReviewRows(rows, "matched").length', () => {
+      const result = createComprehensiveMockResult()
+      const rows = buildReviewRows(result)
+      const counts = getReviewStatusCounts(rows)
+
+      expect(counts.matched).toBe(filterReviewRows(rows, 'matched').length)
+    })
+
+    it('total invariant: counts.total strictly equals rows.length and filterReviewRows(rows, "all").length', () => {
+      const result = createComprehensiveMockResult()
+      const rows = buildReviewRows(result)
+      const counts = getReviewStatusCounts(rows)
+
+      expect(counts.total).toBe(rows.length)
+      expect(counts.totalRows).toBe(rows.length)
+      expect(counts.total).toBe(filterReviewRows(rows, 'all').length)
     })
   })
 })

@@ -37,6 +37,20 @@ export type ReviewFilter =
   | 'unsupported_file'
   | 'output_collision'
 
+export interface ReviewStatusCounts {
+  readonly total: number
+  readonly totalRows: number
+  readonly matched: number
+  readonly totalProblems: number
+  readonly unmatched_image: number
+  readonly unmatched_product: number
+  readonly invalid_product_key: number
+  readonly duplicate_product_key: number
+  readonly ambiguous_match: number
+  readonly unsupported_file: number
+  readonly output_collision: number
+}
+
 export interface ReviewProblemCounts {
   readonly totalProblems: number
   readonly unmatchedImages: number
@@ -46,6 +60,69 @@ export interface ReviewProblemCounts {
   readonly ambiguousMatches: number
   readonly unsupportedFiles: number
   readonly outputCollisions: number
+}
+
+/**
+ * Calculates exact status and problem counts directly from visible ReviewRows.
+ * Ensures the count displayed beside any filter strictly equals the number of rows
+ * returned when that filter is active.
+ */
+export function getReviewStatusCounts(rows: readonly ReviewRow[]): ReviewStatusCounts {
+  let matched = 0
+  let totalProblems = 0
+  let unmatched_image = 0
+  let unmatched_product = 0
+  let invalid_product_key = 0
+  let duplicate_product_key = 0
+  let ambiguous_match = 0
+  let unsupported_file = 0
+  let output_collision = 0
+
+  for (const row of rows) {
+    if (row.isProblem) {
+      totalProblems++
+    }
+    switch (row.status) {
+      case 'matched':
+        matched++
+        break
+      case 'unmatched_image':
+        unmatched_image++
+        break
+      case 'unmatched_product':
+        unmatched_product++
+        break
+      case 'invalid_product_key':
+        invalid_product_key++
+        break
+      case 'duplicate_product_key':
+        duplicate_product_key++
+        break
+      case 'ambiguous_match':
+        ambiguous_match++
+        break
+      case 'unsupported_file':
+        unsupported_file++
+        break
+      case 'output_collision':
+        output_collision++
+        break
+    }
+  }
+
+  return {
+    total: rows.length,
+    totalRows: rows.length,
+    matched,
+    totalProblems,
+    unmatched_image,
+    unmatched_product,
+    invalid_product_key,
+    duplicate_product_key,
+    ambiguous_match,
+    unsupported_file,
+    output_collision,
+  }
 }
 
 /**
