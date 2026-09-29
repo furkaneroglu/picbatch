@@ -154,7 +154,7 @@ describe('Match Review Logic (src/core/review.ts)', () => {
       expect(row?.filename).toBe('SKU-001-1.jpg')
       expect(row?.productIdentifier).toBe('SKU-001')
       expect(row?.sequenceNumber).toBe(1)
-      expect(row?.proposedFilename).toBe('Pending naming step')
+      expect(row?.proposedFilename).toBe('SKU-001-1.jpg')
       expect(row?.matchMethod).toBe('sku')
       expect(row?.isProblem).toBe(false)
       expect(row?.reason).toBe('—')
@@ -228,6 +228,70 @@ describe('Match Review Logic (src/core/review.ts)', () => {
       expect(row?.filename).toBe('notes.pdf')
       expect(row?.isProblem).toBe(true)
       expect(row?.reason).toBe('Unsupported file format (.pdf)')
+    })
+
+    it('8. builds output collision rows with visible proposed filename and collision reason', () => {
+      const prodA = createMockProduct(0, 'COLLIDE/1')
+      const prodB = createMockProduct(1, 'COLLIDE\\1')
+      const collisionResult: MatchingEngineResult = {
+        imageResults: [
+          {
+            item: createMockImage('photos/c1.jpg'),
+            status: 'matched',
+            matchMethod: 'primary_identifier',
+            matchedProductRowIndex: 0,
+            matchedProduct: prodA,
+            primaryIdentifier: 'COLLIDE/1',
+            sequenceNumber: 1,
+          },
+          {
+            item: createMockImage('photos/c2.jpg'),
+            status: 'matched',
+            matchMethod: 'primary_identifier',
+            matchedProductRowIndex: 1,
+            matchedProduct: prodB,
+            primaryIdentifier: 'COLLIDE\\1',
+            sequenceNumber: 1,
+          },
+        ],
+        unmatchedProducts: [],
+        invalidProducts: [],
+        duplicateProducts: [],
+        products: [],
+        matchedImages: [],
+        unmatchedImages: [],
+        ambiguousImages: [],
+        unsupportedFiles: [],
+        summary: {
+          totalProducts: 2,
+          validProducts: 2,
+          invalidProducts: 0,
+          duplicateProducts: 0,
+          totalImages: 2,
+          supportedImages: 2,
+          unsupportedFiles: 0,
+          matchedImages: 2,
+          unmatchedImages: 0,
+          ambiguousMatches: 0,
+          unmatchedProducts: 0,
+        },
+      }
+
+      const collisionRows = buildReviewRows(collisionResult)
+      expect(collisionRows).toHaveLength(2)
+      expect(collisionRows[0]?.status).toBe('output_collision')
+      expect(collisionRows[0]?.isProblem).toBe(true)
+      expect(collisionRows[0]?.proposedFilename).toBe('COLLIDE-1-1.jpg')
+      expect(collisionRows[0]?.reason).toContain('Multiple images resolve to the same output path: images/COLLIDE-1-1.jpg')
+
+      expect(collisionRows[1]?.status).toBe('output_collision')
+      expect(collisionRows[1]?.isProblem).toBe(true)
+      expect(collisionRows[1]?.proposedFilename).toBe('COLLIDE-1-1.jpg')
+
+      const counts = getReviewStatusCounts(collisionRows)
+      expect(counts.output_collision).toBe(2)
+      expect(counts.totalProblems).toBe(2)
+      expect(counts.matched).toBe(0)
     })
 
     it('10. produces deterministic row ordering and unique IDs across runs', () => {

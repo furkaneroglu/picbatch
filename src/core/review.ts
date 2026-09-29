@@ -7,6 +7,8 @@ import type {
   ProductRecord,
 } from '../types/matching'
 
+import { buildOutputPlan } from './naming'
+
 export type ReviewRowType = 'image' | 'product'
 
 export interface ReviewRow {
@@ -196,22 +198,31 @@ export function getProblemCounts(summary: MatchingSummary): ReviewProblemCounts 
  * covering both image-oriented rows and product-oriented problems.
  */
 export function buildReviewRows(result: MatchingEngineResult): ReviewRow[] {
+  const outputPlan = buildOutputPlan(result)
+
   // 1. Image-oriented rows (deterministic inventory order)
-  const imageRows: ReviewRow[] = result.imageResults.map((img) => ({
-    id: `img-${img.item.id}`,
-    rowType: 'image',
-    sourcePath: img.item.relativePath,
-    filename: img.item.basename,
-    productIdentifier: img.primaryIdentifier ?? '—',
-    sequenceNumber: img.sequenceNumber ?? null,
-    proposedFilename: img.status === 'matched' ? 'Pending naming step' : '—',
-    matchMethod: img.matchMethod,
-    status: img.status,
-    reason: img.reason ?? '—',
-    isProblem: img.status !== 'matched',
-    matchedProduct: img.matchedProduct,
-    item: img.item,
-  }))
+  const imageRows: ReviewRow[] = result.imageResults.map((img, idx) => {
+    const plan = outputPlan.imagePlans[idx]
+    const effectiveStatus = plan?.status ?? img.status
+    const isProblem = plan ? plan.isProblem : (img.status !== 'matched')
+    const proposed = plan?.proposedFilename ?? '—'
+
+    return {
+      id: `img-${img.item.id}`,
+      rowType: 'image',
+      sourcePath: img.item.relativePath,
+      filename: img.item.basename,
+      productIdentifier: plan?.originalIdentifier ?? img.primaryIdentifier ?? '—',
+      sequenceNumber: plan?.sequenceNumber ?? img.sequenceNumber ?? null,
+      proposedFilename: proposed,
+      matchMethod: plan?.matchMethod ?? img.matchMethod,
+      status: effectiveStatus,
+      reason: plan?.reason && plan.reason !== '—' ? plan.reason : (img.reason ?? '—'),
+      isProblem,
+      matchedProduct: plan?.matchedProduct ?? img.matchedProduct,
+      item: img.item,
+    }
+  })
 
   // 2. Product-oriented rows: Unmatched products (in spreadsheet row order)
   const unmatchedProductRows: ReviewRow[] = result.unmatchedProducts.map((u) => ({
@@ -294,6 +305,7 @@ export function filterReviewRows(
         r.sourcePath.toLowerCase().includes(q) ||
         r.filename.toLowerCase().includes(q) ||
         r.productIdentifier.toLowerCase().includes(q) ||
+        r.proposedFilename.toLowerCase().includes(q) ||
         r.reason.toLowerCase().includes(q) ||
         formatMatchStatus(r.status).toLowerCase().includes(q) ||
         formatMatchMethod(r.matchMethod).toLowerCase().includes(q)

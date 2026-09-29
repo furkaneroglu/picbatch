@@ -10,6 +10,7 @@ import {
   getReviewStatusCounts,
   type ReviewFilter,
 } from '../core/review'
+import { generateReportCsv, downloadReportCsv } from '../core/report'
 
 export interface MatchReviewStepProps {
   readonly spreadsheet: ParsedSpreadsheet | null
@@ -83,6 +84,12 @@ export function MatchReviewStep({
     setCurrentPage(1)
   }
 
+  const handleDownloadReport = () => {
+    if (!matchResult) return
+    const csv = generateReportCsv(matchResult)
+    downloadReportCsv(csv, 'picbatch-report.csv')
+  }
+
   // Safe fallback if reached without valid prior state
   if (!spreadsheet || !inventory || !matchResult) {
     return (
@@ -125,9 +132,9 @@ export function MatchReviewStep({
             <span className="stat-sub">{summary.supportedImages} supported, {summary.unsupportedFiles} ignored</span>
           </div>
 
-          <div className={`stat-card ${summary.matchedImages > 0 ? 'stat-card-matched' : ''}`}>
-            <span className={`stat-value ${summary.matchedImages > 0 ? 'stat-value-success' : ''}`}>
-              {summary.matchedImages}
+          <div className={`stat-card ${statusCounts.matched > 0 ? 'stat-card-matched' : ''}`}>
+            <span className={`stat-value ${statusCounts.matched > 0 ? 'stat-value-success' : ''}`}>
+              {statusCounts.matched}
             </span>
             <span className="stat-label">Safely Matched Images</span>
             <span className="stat-sub">Ready for output processing</span>
@@ -213,10 +220,14 @@ export function MatchReviewStep({
               <span className="breakdown-chip-count">{statusCounts.unsupported_file}</span>
             </button>
 
-            <span className="breakdown-chip" title="Output collisions are detected during MVP-06 naming step">
+            <button
+              type="button"
+              className={`breakdown-chip ${statusCounts.output_collision > 0 ? 'has-issues' : ''} ${filter === 'output_collision' ? 'active' : ''}`}
+              onClick={() => handleFilterChange('output_collision')}
+            >
               <span>Output collisions:</span>
               <span className="breakdown-chip-count">{statusCounts.output_collision}</span>
-            </span>
+            </button>
           </div>
         </div>
 
@@ -273,6 +284,15 @@ export function MatchReviewStep({
         </div>
 
         <div className="toolbar-controls">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleDownloadReport}
+            title="Download full match and output report as CSV"
+          >
+            Download report CSV
+          </button>
+
           <select
             className="select-input"
             value={filter}
@@ -288,6 +308,7 @@ export function MatchReviewStep({
             <option value="duplicate_product_key">Duplicate-key cases ({statusCounts.duplicate_product_key})</option>
             <option value="invalid_product_key">Invalid product keys ({statusCounts.invalid_product_key})</option>
             <option value="unsupported_file">Unsupported files ({statusCounts.unsupported_file})</option>
+            <option value="output_collision">Output collisions ({statusCounts.output_collision})</option>
           </select>
 
           <input
@@ -363,8 +384,8 @@ export function MatchReviewStep({
                         )}
                       </td>
                       <td>
-                        {row.proposedFilename === 'Pending naming step' ? (
-                          <span className="proposed-placeholder">Pending naming step</span>
+                        {row.proposedFilename !== '—' ? (
+                          <code>{row.proposedFilename}</code>
                         ) : (
                           <span className="empty-cell-placeholder">—</span>
                         )}
