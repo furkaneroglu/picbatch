@@ -217,6 +217,10 @@ export function executeDeterministicMatching(
   }
 
   for (const p of products) {
+    if (p.status === 'invalid_product_key') {
+      continue
+    }
+
     addToIndex(primaryIndex, p.primaryIdentifierNormalized, p)
 
     if (mapping.skuColumn && p.skuNormalized) {

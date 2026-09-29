@@ -92,6 +92,78 @@ describe('Deterministic Matching Engine', () => {
       expect(result.summary.matchedImages).toBe(1)
       expect(result.matchedImages[0]?.primaryIdentifier).toBe('XYZ-999')
     })
+
+    it('does not allow rows with blank primary key and mapped barcode to participate in matching', () => {
+      const barcodeMapping: ColumnMapping = {
+        primaryKeyColumn: 'ID',
+        skuColumn: null,
+        barcodeColumn: 'Barcode',
+        currentFilenameColumn: null,
+      }
+      const rows = [{ ID: '', Barcode: '8690001001' }]
+      const inventory = createMockInventory(['8690001001.jpg'])
+
+      const result = executeDeterministicMatching(rows, barcodeMapping, inventory)
+
+      expect(result.products[0]?.status).toBe('invalid_product_key')
+      expect(result.invalidProducts).toHaveLength(1)
+      expect(result.summary.invalidProducts).toBe(1)
+
+      expect(result.summary.matchedImages).toBe(0)
+      expect(result.summary.unmatchedImages).toBe(1)
+      expect(result.imageResults[0]?.status).toBe('unmatched_image')
+      expect(result.imageResults[0]?.status).not.toBe('invalid_product_key')
+    })
+
+    it('does not allow rows with blank primary key and explicit filename to participate in matching', () => {
+      const explicitMapping: ColumnMapping = {
+        primaryKeyColumn: 'ID',
+        skuColumn: null,
+        barcodeColumn: null,
+        currentFilenameColumn: 'CurrentFilename',
+      }
+      const rows = [{ ID: '', CurrentFilename: 'front.jpg' }]
+      const inventory = createMockInventory(['front.jpg'])
+
+      const result = executeDeterministicMatching(rows, explicitMapping, inventory)
+
+      expect(result.products[0]?.status).toBe('invalid_product_key')
+      expect(result.invalidProducts).toHaveLength(1)
+      expect(result.summary.invalidProducts).toBe(1)
+
+      expect(result.summary.matchedImages).toBe(0)
+      expect(result.summary.unmatchedImages).toBe(1)
+      expect(result.imageResults[0]?.status).toBe('unmatched_image')
+      expect(result.imageResults[0]?.matchedProductRowIndex).toBeNull()
+    })
+
+    it('ensures invalid row does not block or conflict with a valid product row', () => {
+      const barcodeMapping: ColumnMapping = {
+        primaryKeyColumn: 'ID',
+        skuColumn: null,
+        barcodeColumn: 'Barcode',
+        currentFilenameColumn: null,
+      }
+      const rows = [
+        { ID: '', Barcode: 'VALID-001' },
+        { ID: 'VALID-001', Barcode: '' },
+      ]
+      const inventory = createMockInventory(['VALID-001.jpg'])
+
+      const result = executeDeterministicMatching(rows, barcodeMapping, inventory)
+
+      expect(result.products[0]?.status).toBe('invalid_product_key')
+      expect(result.products[1]?.status).toBe('valid')
+      expect(result.invalidProducts).toHaveLength(1)
+
+      expect(result.summary.ambiguousMatches).toBe(0)
+      expect(result.summary.matchedImages).toBe(1)
+
+      const matched = result.imageResults[0]
+      expect(matched?.status).toBe('matched')
+      expect(matched?.matchedProduct?.primaryIdentifierRaw).toBe('VALID-001')
+      expect(matched?.matchedProductRowIndex).toBe(1)
+    })
   })
 
   describe('Filename Inference & Prefix Collision Handling', () => {
