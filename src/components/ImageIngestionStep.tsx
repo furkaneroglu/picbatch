@@ -359,8 +359,8 @@ export function ImageIngestionStep({
               type="button"
               className="btn btn-primary"
               onClick={onNext}
-              disabled={inventory.supportedFileCount === 0}
-              title={inventory.supportedFileCount === 0 ? 'At least one supported image is required to continue' : ''}
+              disabled={inventory.totalFileCount === 0}
+              title={inventory.totalFileCount === 0 ? 'Select a folder or ZIP file to continue' : ''}
             >
               Continue to Match Review &rarr;
             </button>

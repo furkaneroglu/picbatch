@@ -6,6 +6,7 @@ import { suggestColumnMapping, validatePrimaryIdentifierColumn } from './core/ta
 import { ProductFileStep } from './components/ProductFileStep'
 import { ColumnMappingStep } from './components/ColumnMappingStep'
 import { ImageIngestionStep } from './components/ImageIngestionStep'
+import { MatchReviewStep } from './components/MatchReviewStep'
 import { PlaceholderStep } from './components/PlaceholderStep'
 import './App.css'
 
@@ -44,8 +45,8 @@ export function App() {
     if (!validation.isValid) return false
     if (stepIndex === 2) return true
 
-    // For step 3 (Match review) onwards, at least 1 supported image is required
-    if (!imageInventory || imageInventory.supportedFileCount === 0) return false
+    // For step 3 (Match review) onwards, at least 1 discovered file is required
+    if (!imageInventory || imageInventory.totalFileCount === 0) return false
 
     return true
   }
@@ -159,8 +160,20 @@ export function App() {
               />
             )}
 
-            {/* Steps 4 to 6: Placeholders */}
-            {currentStepIndex >= 3 && (
+            {/* Step 4: Match Review */}
+            {currentStepIndex === 3 && (
+              <MatchReviewStep
+                spreadsheet={spreadsheet}
+                mapping={columnMapping}
+                inventory={imageInventory}
+                onPrevious={() => setCurrentStepIndex(2)}
+                onGoToColumnMapping={() => setCurrentStepIndex(1)}
+                onNext={() => setCurrentStepIndex(4)}
+              />
+            )}
+
+            {/* Steps 5 to 6: Placeholders */}
+            {currentStepIndex >= 4 && (
               <PlaceholderStep
                 step={activeStep}
                 currentStepIndex={currentStepIndex}
